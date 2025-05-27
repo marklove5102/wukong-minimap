@@ -18,6 +18,35 @@ use crate::renderer::RenderEngine;
 use crate::util::{self, Fence};
 use crate::RenderContext;
 
+/// 管理多个 fence 以支持更好的并发性
+struct FrameFenceManager {
+    fences: [Fence; 3], // 支持最多 3 帧的并发
+    current_frame: usize,
+}
+
+impl FrameFenceManager {
+    fn new(device: &ID3D12Device) -> Result<Self> {
+        let fences = [Fence::new(device)?, Fence::new(device)?, Fence::new(device)?];
+
+        Ok(Self { fences, current_frame: 0 })
+    }
+
+    /// 等待当前帧对应的 fence（即 N-3 帧前的 fence）
+    fn wait_for_current_frame(&self) -> Result<()> {
+        self.fences[self.current_frame].wait()
+    }
+
+    /// 获取当前帧的 fence
+    fn current_fence(&self) -> &Fence {
+        &self.fences[self.current_frame]
+    }
+
+    /// 移动到下一帧
+    fn advance_frame(&mut self) {
+        self.current_frame = (self.current_frame + 1) % self.fences.len();
+    }
+}
+
 pub struct D3D12RenderEngine {
     device: ID3D12Device,
 
@@ -37,7 +66,7 @@ pub struct D3D12RenderEngine {
     index_buffer: Buffer<u16>,
     projection_buffer: [[f32; 4]; 4],
 
-    fence: Fence,
+    fence_manager: FrameFenceManager,
 }
 
 impl D3D12RenderEngine {
@@ -53,7 +82,7 @@ impl D3D12RenderEngine {
         let vertex_buffer = Buffer::new(&device, 5000)?;
         let index_buffer = Buffer::new(&device, 10000)?;
 
-        let fence = Fence::new(&device)?;
+        let fence_manager = FrameFenceManager::new(&device)?;
 
         ctx.set_ini_filename(None);
         ctx.io_mut().backend_flags |= BackendFlags::RENDERER_HAS_VTX_OFFSET;
@@ -72,7 +101,7 @@ impl D3D12RenderEngine {
             vertex_buffer,
             index_buffer,
             projection_buffer: Default::default(),
-            fence,
+            fence_manager,
         })
     }
 }
@@ -102,6 +131,10 @@ impl RenderEngine for D3D12RenderEngine {
 
     fn render(&mut self, draw_data: &DrawData, render_target: Self::RenderTarget) -> Result<()> {
         unsafe {
+            // 在帧开始时等待前几帧的 fence，确保资源可用
+            // 这比在帧结束时等待更优雅，因为它允许 GPU 并行工作
+            self.fence_manager.wait_for_current_frame()?;
+
             self.device.CreateRenderTargetView(&render_target, None, self.rtv_heap_start);
 
             self.command_allocator.Reset()?;
@@ -128,9 +161,14 @@ impl RenderEngine for D3D12RenderEngine {
             self.command_list.ResourceBarrier(&rtv_to_present_barriers);
             self.command_list.Close()?;
             self.command_queue.ExecuteCommandLists(&[Some(self.command_list.cast()?)]);
-            self.command_queue.Signal(self.fence.fence(), self.fence.value())?;
-            self.fence.wait()?;
-            self.fence.incr();
+
+            // 发信号但不等待，让 GPU 异步执行
+            let current_fence = self.fence_manager.current_fence();
+            self.command_queue.Signal(current_fence.fence(), current_fence.value())?;
+            current_fence.incr();
+
+            // 移动到下一帧
+            self.fence_manager.advance_frame();
 
             present_to_rtv_barriers.into_iter().for_each(util::drop_barrier);
             rtv_to_present_barriers.into_iter().for_each(util::drop_barrier);
