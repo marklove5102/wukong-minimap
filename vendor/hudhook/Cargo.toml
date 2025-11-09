@@ -1,6 +1,6 @@
 [package]
 name = "hudhook"
-version = "0.8.1"
+version = "0.8.2"
 edition = "2021"
 description = "A graphics API hook with dear imgui render loop. Supports DirectX 9, 11, 12, and OpenGL 3."
 homepage = "https://github.com/veeenu/hudhook"
@@ -13,9 +13,9 @@ authors = ["Andrea Venuta <venutawebdesign@gmail.com>"]
 default-target = "x86_64-pc-windows-gnu"
 targets = [
   "x86_64-pc-windows-msvc",
-  "i686-pc-windows-msvc",
-  "x86_64-pc-windows-gnu",
-  "i686-pc-windows-gnu",
+  "i686-pc-windows-msvc", 
+  "x86_64-pc-windows-gnu", 
+  "i686-pc-windows-gnu"
 ]
 
 [features]
@@ -62,10 +62,8 @@ bitflags = "2.5.0"
 imgui = "0.12"
 once_cell = { version = "1.18.0", default-features = false }
 parking_lot = "0.12"
-tracing = { version = "0.1.41", features = ["log"], default-features = false }
-tracing-subscriber = { version = "0.3.19", features = [
-  "env-filter",
-], default-features = false }
+tracing = { version = "0.1", features = ["log"], default-features = false }
+tracing-subscriber = { version = "0.3", features = ["env-filter"], default-features = false }
 
 [dependencies.windows]
 version = "0.54.0"
@@ -93,7 +91,7 @@ features = [
   "Win32_System_Threading",
   "Win32_UI_Input_KeyboardAndMouse",
   "Win32_UI_WindowsAndMessaging",
-]
+] 
 
 [dev-dependencies]
 dotenv = "0.15.0"

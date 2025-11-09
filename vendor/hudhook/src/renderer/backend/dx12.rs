@@ -174,12 +174,12 @@ impl D3D12RenderEngine {
                 draw_data.display_pos[1] + draw_data.display_size[1],
             ];
 
-            [
-                [2. / (r - l), 0., 0., 0.],
-                [0., 2. / (t - b), 0., 0.],
-                [0., 0., 0.5, 0.],
-                [(r + l) / (l - r), (t + b) / (b - t), 0.5, 1.0],
-            ]
+            [[2. / (r - l), 0., 0., 0.], [0., 2. / (t - b), 0., 0.], [0., 0., 0.5, 0.], [
+                (r + l) / (l - r),
+                (t + b) / (b - t),
+                0.5,
+                1.0,
+            ]]
         };
 
         self.setup_render_state(draw_data);
@@ -534,7 +534,7 @@ unsafe fn create_shader_program(
                     DestBlend: D3D12_BLEND_INV_SRC_ALPHA,
                     BlendOp: D3D12_BLEND_OP_ADD,
                     SrcBlendAlpha: D3D12_BLEND_ONE,
-                    DestBlendAlpha: D3D12_BLEND_ONE,
+                    DestBlendAlpha: D3D12_BLEND_INV_SRC_ALPHA,
                     BlendOpAlpha: D3D12_BLEND_OP_ADD,
                     LogicOp: Default::default(),
                     RenderTargetWriteMask: D3D12_COLOR_WRITE_ENABLE_ALL.0 as _,
